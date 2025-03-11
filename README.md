@@ -13,3 +13,11 @@ This doesn't really matter, but is useful for the AI to understand more about th
 - TailwindCSS
 - Firebase Auth, Storage, and Database
 - Multiple AI endpoints including OpenAI, Anthropic, and Replicate using Vercel's AI SDK
+
+## Setup
+Clone the repo and install dependencies:
+```bash
+git clone [repo-url]
+cd fanz
+npm install
+npm start
