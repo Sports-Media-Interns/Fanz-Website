@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { useState, FormEvent, useEffect } from 'react';
 import Head from 'next/head';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/components/firebase';
+import { auth, db } from '@/components/firebase';
+import { setDoc, doc } from "firebase/firestore"
 
 const Signup: React.FC = () => {
     const [firstName, setFirstName] = useState<string>('');
@@ -59,6 +60,15 @@ const Signup: React.FC = () => {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
+
+            if (user) {
+                setDoc(doc(db, "users", user.uid), {
+                    firstName: firstName,
+                    lastName: lastName,
+                    email: user.email,
+                    createdAt: new Date()
+                })
+            }
 
             setShowSuccessPopup(true);
         } catch (error: any) {
