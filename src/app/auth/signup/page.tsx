@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useState, FormEvent, useEffect } from 'react';
 import Head from 'next/head';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth, db } from '@/components/firebase';
+import { auth, db } from '@/app/components/firebase';
 import { setDoc, doc } from "firebase/firestore"
 
 const Signup: React.FC = () => {
@@ -17,6 +17,7 @@ const Signup: React.FC = () => {
     const [passwordError, setPasswordError] = useState<string>('');
     const [authError, setAuthError] = useState<string>('');
     const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false);
+    const [showEmailExistsPopup, setShowEmailExistsPopup] = useState<boolean>(false);
 
     useEffect(() => {
         // Add a slight delay before showing animations to ensure smooth transition
@@ -46,6 +47,19 @@ const Signup: React.FC = () => {
         };
     }, [showSuccessPopup]);
 
+    // Auto-hide email exists popup after a few seconds
+    useEffect(() => {
+        let popupTimer: NodeJS.Timeout;
+        if (showEmailExistsPopup) {
+            popupTimer = setTimeout(() => {
+                setShowEmailExistsPopup(false);
+            }, 3000); // Hide popup after 3 seconds
+        }
+        return () => {
+            if (popupTimer) clearTimeout(popupTimer);
+        };
+    }, [showEmailExistsPopup]);
+
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
@@ -56,6 +70,7 @@ const Signup: React.FC = () => {
 
         setIsLoading(true);
         setAuthError('');
+        setShowEmailExistsPopup(false);
 
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -72,8 +87,15 @@ const Signup: React.FC = () => {
 
             setShowSuccessPopup(true);
         } catch (error: any) {
-            setAuthError(error.message || 'Failed to create account');
             console.error('Signup error:', error);
+
+            // Check for email already exists error
+            if (error.code === 'auth/email-already-in-use') {
+                setShowEmailExistsPopup(true);
+            } else {
+                setAuthError(error.message || 'Failed to create account');
+            }
+
         } finally {
             setIsLoading(false);
         }
@@ -96,6 +118,18 @@ const Signup: React.FC = () => {
                     <span>Home</span>
                 </Link>
             </div>
+
+            {/* Email Exists Popup */}
+            {showEmailExistsPopup && (
+                <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg animate-fadeIn">
+                    <div className="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <span>Email already exists</span>
+                    </div>
+                </div>
+            )}
 
             {/* Success Popup */}
             {showSuccessPopup && (

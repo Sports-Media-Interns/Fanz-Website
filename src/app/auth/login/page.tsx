@@ -2,12 +2,16 @@
 import Link from 'next/link';
 import { useState, FormEvent, useEffect } from 'react';
 import Head from 'next/head';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/app/components/firebase';
+import { useRouter } from 'next/compat/router';
 
 const Login: React.FC = () => {
     const [email, setEmail] = useState<string>('');
     const [password, setPassword] = useState<string>('');
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [animatedElements, setAnimatedElements] = useState<boolean>(false);
+    const router = useRouter();
 
     useEffect(() => {
         // Add a slight delay before showing animations to ensure smooth transition
@@ -15,15 +19,24 @@ const Login: React.FC = () => {
         return () => clearTimeout(timer);
     }, []);
 
-    const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setIsLoading(true);
 
-        setTimeout(() => {
-            console.log('Login attempt with:', email);
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
             setIsLoading(false);
-            // Handle login logic here
-        }, 1200);
+            if (router) {
+                router.push("/dashboard/profile");
+            } else {
+                console.error("Router is null");
+                window.location.href = "/dashboard/profile";
+            }
+        }
+        catch (error) {
+            console.error('Error signing in:', error);
+            setIsLoading(false);
+        }
     };
 
     return (
