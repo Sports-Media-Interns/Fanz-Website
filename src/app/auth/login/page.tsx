@@ -96,7 +96,7 @@ const Login: React.FC = () => {
                                 <input
                                     type="email"
                                     id="email"
-                                    className="w-full px-4 py-3 rounded-lg bg-white/70 backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
+                                    className="w-full px-4 py-3 rounded-lg bg-white/70 text-black backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
                                     placeholder="Enter your email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
@@ -116,7 +116,7 @@ const Login: React.FC = () => {
                                 <input
                                     type="password"
                                     id="password"
-                                    className="w-full px-4 py-3 rounded-lg bg-white/70 backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
+                                    className="w-full px-4 py-3 rounded-lg bg-white/70 text-black backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
                                     placeholder="Enter your password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
@@ -129,7 +129,7 @@ const Login: React.FC = () => {
                                     id="remember-me"
                                     name="remember-me"
                                     type="checkbox"
-                                    className="h-4 w-4 text-[#3BB4E5] border-gray-300 rounded focus:ring-[#3BB4E5]"
+                                    className="h-4 w-4 text-[#3BB4E5] border-gray-300  rounded focus:ring-[#3BB4E5]"
                                 />
                                 <label htmlFor="remember-me" className="ml-2 block text-sm text-white">
                                     Remember me

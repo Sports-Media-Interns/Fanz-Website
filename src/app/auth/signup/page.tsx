@@ -2,6 +2,8 @@
 import Link from 'next/link';
 import { useState, FormEvent, useEffect } from 'react';
 import Head from 'next/head';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/components/firebase';
 
 const Signup: React.FC = () => {
     const [firstName, setFirstName] = useState<string>('');
@@ -12,6 +14,8 @@ const Signup: React.FC = () => {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [animatedElements, setAnimatedElements] = useState<boolean>(false);
     const [passwordError, setPasswordError] = useState<string>('');
+    const [authError, setAuthError] = useState<string>('');
+    const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false);
 
     useEffect(() => {
         // Add a slight delay before showing animations to ensure smooth transition
@@ -28,7 +32,20 @@ const Signup: React.FC = () => {
         }
     }, [password, confirmPassword]);
 
-    const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    // Handle redirection after successful registration
+    useEffect(() => {
+        let redirectTimer: NodeJS.Timeout;
+        if (showSuccessPopup) {
+            redirectTimer = setTimeout(() => {
+                window.location.href = '/auth/login';
+            }, 3000); // Redirect after 3 seconds
+        }
+        return () => {
+            if (redirectTimer) clearTimeout(redirectTimer);
+        };
+    }, [showSuccessPopup]);
+
+    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
         if (password !== confirmPassword) {
@@ -37,14 +54,21 @@ const Signup: React.FC = () => {
         }
 
         setIsLoading(true);
+        setAuthError('');
 
-        // Simulate API call
-        setTimeout(() => {
-            console.log('Signup attempt with:', { firstName, lastName, email });
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+
+            setShowSuccessPopup(true);
+        } catch (error: any) {
+            setAuthError(error.message || 'Failed to create account');
+            console.error('Signup error:', error);
+        } finally {
             setIsLoading(false);
-            // Handle signup logic here
-        }, 1200);
+        }
     };
+
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-[#3BB4E5] via-[#2A91F5] to-[#1A2A8F] flex justify-center items-center p-4">
@@ -62,6 +86,26 @@ const Signup: React.FC = () => {
                     <span>Home</span>
                 </Link>
             </div>
+
+            {/* Success Popup */}
+            {showSuccessPopup && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 transform transition-all scale-100 animate-fadeIn">
+                        <div className="text-center">
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4">
+                                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">Successfully Registered!</h3>
+                            <p className="text-sm text-gray-500 mb-6">Your account has been created. Redirecting you to login...</p>
+                            <div className="w-full bg-gray-200 h-1 rounded-full overflow-hidden">
+                                <div className="bg-green-500 h-1 rounded-full animate-progress"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Decorative elements */}
             <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-[#1A2A8F]/30 to-[#3BB4E5]/30 rounded-full filter blur-3xl -translate-y-1/2 translate-x-1/2"></div>
@@ -108,6 +152,12 @@ const Signup: React.FC = () => {
                         <h2 className="text-2xl font-bold text-white-800 mb-2">Create Your Account</h2>
                         <p className="text-white-600 mb-8">Fill in your details to get started</p>
 
+                        {authError && (
+                            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                                <p className="text-red-100 text-sm">{authError}</p>
+                            </div>
+                        )}
+
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
@@ -117,7 +167,7 @@ const Signup: React.FC = () => {
                                     <input
                                         type="text"
                                         id="firstName"
-                                        className="w-full px-4 py-3 rounded-lg bg-white/70 backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
+                                        className="w-full px-4 py-3 rounded-lg bg-white/70 text-black backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
                                         placeholder="Enter your first name"
                                         value={firstName}
                                         onChange={(e) => setFirstName(e.target.value)}
@@ -131,7 +181,7 @@ const Signup: React.FC = () => {
                                     <input
                                         type="text"
                                         id="lastName"
-                                        className="w-full px-4 py-3 rounded-lg bg-white/70 backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
+                                        className="w-full px-4 py-3 rounded-lg bg-white/70 text-black backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
                                         placeholder="Enter your last name"
                                         value={lastName}
                                         onChange={(e) => setLastName(e.target.value)}
@@ -147,7 +197,7 @@ const Signup: React.FC = () => {
                                 <input
                                     type="email"
                                     id="email"
-                                    className="w-full px-4 py-3 rounded-lg bg-white/70 backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
+                                    className="w-full px-4 py-3 rounded-lg bg-white/70 text-black backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
                                     placeholder="Enter your email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
@@ -162,7 +212,7 @@ const Signup: React.FC = () => {
                                 <input
                                     type="password"
                                     id="password"
-                                    className="w-full px-4 py-3 rounded-lg bg-white/70 backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
+                                    className="w-full px-4 py-3 rounded-lg bg-white/70 text-black backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
                                     placeholder="Create a password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
@@ -179,7 +229,7 @@ const Signup: React.FC = () => {
                                 <input
                                     type="password"
                                     id="confirmPassword"
-                                    className={`w-full px-4 py-3 rounded-lg bg-white/70 backdrop-blur-sm border ${passwordError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#3BB4E5]'
+                                    className={`w-full px-4 py-3 rounded-lg bg-white/70 text-black backdrop-blur-sm border ${passwordError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#3BB4E5]'
                                         } focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200`}
                                     placeholder="Confirm your password"
                                     value={confirmPassword}
