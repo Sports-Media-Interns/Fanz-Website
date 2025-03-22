@@ -1,13 +1,15 @@
 'use client'
 import Link from 'next/link';
-import { useState, FormEvent, useEffect } from 'react';
 import Head from 'next/head';
+import { useState, FormEvent, useEffect } from 'react';
+import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 
 const ResetPassword: React.FC = () => {
     const [email, setEmail] = useState<string>('');
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
     const [animatedElements, setAnimatedElements] = useState<boolean>(false);
+    const [error, setError] = useState<string>('');
 
     useEffect(() => {
         // Add a slight delay before showing animations to ensure smooth transition
@@ -15,18 +17,31 @@ const ResetPassword: React.FC = () => {
         return () => clearTimeout(timer);
     }, []);
 
-    const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setIsLoading(true);
+        setError('');
 
-        setTimeout(() => {
-            console.log('Reset password request for:', email);
-            setIsLoading(false);
+        try {
+            const auth = getAuth();
+            await sendPasswordResetEmail(auth, email);
             setIsSubmitted(true);
-            // Handle reset password logic here
-        }, 1200);
+        } catch (error: any) {
+            // Handle specific Firebase error codes
+            if (error.code === 'auth/user-not-found') {
+                setError('No account exists with this email address.');
+            } else if (error.code === 'auth/invalid-email') {
+                setError('Please enter a valid email address.');
+            } else if (error.code === 'auth/too-many-requests') {
+                setError('Too many attempts. Please try again later.');
+            } else {
+                setError('Failed to send reset email. Please try again.');
+            }
+            console.error('Reset password error:', error);
+        } finally {
+            setIsLoading(false);
+        }
     };
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-[#3BB4E5] via-[#2A91F5] to-[#1A2A8F] flex justify-center items-center p-4">
             <Head>
@@ -80,6 +95,12 @@ const ResetPassword: React.FC = () => {
                                         required
                                     />
                                 </div>
+
+                                {error && (
+                                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                                        <span className="block sm:inline">{error}</span>
+                                    </div>
+                                )}
 
                                 <button
                                     type="submit"
