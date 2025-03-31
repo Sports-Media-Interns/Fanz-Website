@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useState, FormEvent, useEffect } from 'react';
 import Head from 'next/head';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/app/components/firebase';
+import { auth } from '@/lib/firebase/firebase';
 import { useRouter } from 'next/compat/router';
 
 const Login: React.FC = () => {

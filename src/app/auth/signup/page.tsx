@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useState, FormEvent, useEffect } from 'react';
 import Head from 'next/head';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth, db } from '@/app/components/firebase';
+import { auth, db } from '@/lib/firebase/firebase';
 import { setDoc, doc } from "firebase/firestore"
 
 const Signup: React.FC = () => {
