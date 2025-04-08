@@ -2,13 +2,12 @@
 import Link from 'next/link';
 import { useState, FormEvent } from 'react';
 import Head from 'next/head';
-import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation'; // Use next/navigation for App Router
 
 // Assuming Header is located at /app/components/Header.tsx
 import Header from '@/app/components/Header'; 
 
-{/* TODO: Work on Supabase Auth */}
+{/* TODO: Work on Supabase Login */}
 
 const Login: React.FC = () => {
     const [email, setEmail] = useState<string>('');
@@ -21,21 +20,6 @@ const Login: React.FC = () => {
         e.preventDefault();
         setIsLoading(true);
         setError(null); // Reset error on new submission
-
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-            // No need to set isLoading false here, navigation will unmount the component
-            router.push("/dashboard/profile"); // Or wherever you want to redirect after login
-        } catch (error: any) { // Catch specific Firebase error
-            console.error('Error signing in:', error);
-            // Provide more user-friendly error messages
-            if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-                 setError('Invalid email or password. Please try again.');
-            } else {
-                 setError('An unexpected error occurred. Please try again later.');
-            }
-            setIsLoading(false);
-        }
     };
 
     return (
@@ -166,3 +150,4 @@ const Login: React.FC = () => {
 };
 
 export default Login;
+
