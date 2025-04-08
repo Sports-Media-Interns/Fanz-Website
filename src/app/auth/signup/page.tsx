@@ -1,10 +1,13 @@
+/* /auth/signup/page.tsx */
 'use client'
 import Link from 'next/link';
 import { useState, FormEvent, useEffect } from 'react';
 import Head from 'next/head';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase/firebase';
-import { setDoc, doc } from "firebase/firestore"
+import { useRouter } from 'next/navigation'; // Use next/navigation
+
+// Assuming Header is located at /app/components/Header.tsx
+import Header from '@/app/components/Header'; 
 
 const Signup: React.FC = () => {
     const [firstName, setFirstName] = useState<string>('');
@@ -13,89 +16,70 @@ const Signup: React.FC = () => {
     const [password, setPassword] = useState<string>('');
     const [confirmPassword, setConfirmPassword] = useState<string>('');
     const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [animatedElements, setAnimatedElements] = useState<boolean>(false);
     const [passwordError, setPasswordError] = useState<string>('');
     const [authError, setAuthError] = useState<string>('');
-    const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false);
-    const [showEmailExistsPopup, setShowEmailExistsPopup] = useState<boolean>(false);
+    const [showSuccessMessage, setShowSuccessMessage] = useState<boolean>(false);
 
-    useEffect(() => {
-        // Add a slight delay before showing animations to ensure smooth transition
-        const timer = setTimeout(() => setAnimatedElements(true), 100);
-        return () => clearTimeout(timer);
-    }, []);
+    const router = useRouter();
 
     // Check if passwords match
     useEffect(() => {
-        if (confirmPassword && password !== confirmPassword) {
-            setPasswordError('Passwords do not match');
+        if (password && confirmPassword && password !== confirmPassword) {
+            setPasswordError('Passwords do not match.');
         } else {
             setPasswordError('');
         }
     }, [password, confirmPassword]);
 
-    // Handle redirection after successful registration
-    useEffect(() => {
-        let redirectTimer: NodeJS.Timeout;
-        if (showSuccessPopup) {
-            redirectTimer = setTimeout(() => {
-                window.location.href = '/auth/login';
-            }, 3000); // Redirect after 3 seconds
-        }
-        return () => {
-            if (redirectTimer) clearTimeout(redirectTimer);
-        };
-    }, [showSuccessPopup]);
-
-    // Auto-hide email exists popup after a few seconds
-    useEffect(() => {
-        let popupTimer: NodeJS.Timeout;
-        if (showEmailExistsPopup) {
-            popupTimer = setTimeout(() => {
-                setShowEmailExistsPopup(false);
-            }, 3000); // Hide popup after 3 seconds
-        }
-        return () => {
-            if (popupTimer) clearTimeout(popupTimer);
-        };
-    }, [showEmailExistsPopup]);
-
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        // Reset errors/success message on new submission
+        setPasswordError('');
+        setAuthError('');
+        setShowSuccessMessage(false);
 
         if (password !== confirmPassword) {
-            setPasswordError('Passwords do not match');
+            setPasswordError('Passwords do not match.');
             return;
         }
+        if (password.length < 6) { // Example: Minimum password length check
+             setPasswordError('Password must be at least 6 characters long.');
+             return;
+        }
+
 
         setIsLoading(true);
-        setAuthError('');
-        setShowEmailExistsPopup(false);
 
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            if (user) {
-                setDoc(doc(db, "users", user.uid), {
-                    firstName: firstName,
-                    lastName: lastName,
-                    email: user.email,
-                    createdAt: new Date()
-                })
-            }
+            // Create user document in Firestore
+            await setDoc(doc(db, "users", user.uid), {
+                uid: user.uid, // Store uid for easier querying
+                firstName: firstName.trim(),
+                lastName: lastName.trim(),
+                email: user.email,
+                createdAt: serverTimestamp() // Use server timestamp
+                // Add other default fields like profileImageUrl: null, bio: '', etc.
+            });
 
-            setShowSuccessPopup(true);
+            // Registration successful
+            setShowSuccessMessage(true);
+            // Don't redirect automatically, let the success message show with a link/button
+
         } catch (error: any) {
             console.error('Signup error:', error);
-
-            // Check for email already exists error
+            // Handle specific Firebase errors
             if (error.code === 'auth/email-already-in-use') {
-                setShowEmailExistsPopup(true);
+                setAuthError('This email address is already registered. Please log in or use a different email.');
+            } else if (error.code === 'auth/invalid-email') {
+                setAuthError('Please enter a valid email address.');
+            } else if (error.code === 'auth/weak-password') {
+                setAuthError('Password is too weak. Please choose a stronger password (at least 6 characters).');
             } else {
-                setAuthError(error.message || 'Failed to create account');
+                setAuthError('Failed to create account. Please try again.');
             }
-
         } finally {
             setIsLoading(false);
         }
@@ -103,250 +87,199 @@ const Signup: React.FC = () => {
 
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-[#3BB4E5] via-[#2A91F5] to-[#1A2A8F] flex justify-center items-center p-4">
+        <div className="min-h-screen bg-gray-100">
             <Head>
                 <title>Sign Up | FanZ</title>
                 <meta name="description" content="Create your FanZ account" />
             </Head>
 
-            {/* Home button */}
-            <div className="absolute top-4 left-4 z-20">
-                <Link href="/" className="flex items-center space-x-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-4 py-2 rounded-full transition-all duration-200 shadow-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7m-14 0l2 2m0 0l7 7 7-7m-14 0l2-2" />
-                    </svg>
-                    <span>Home</span>
-                </Link>
-            </div>
+            <Header />
 
-            {/* Email Exists Popup */}
-            {showEmailExistsPopup && (
-                <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg animate-fadeIn">
-                    <div className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        <span>Email already exists</span>
-                    </div>
+            <main className="flex justify-center items-center py-12 px-4">
+                <div className="w-full max-w-lg bg-white p-8 rounded-lg shadow-md">
+
+                     {/* Show Success Message Instead of Form */}
+                    {showSuccessMessage ? (
+                        <div className="text-center py-10">
+                             <div className="w-16 h-16 bg-green-100 rounded-full mx-auto flex items-center justify-center mb-4">
+                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                 </svg>
+                             </div>
+                             <h3 className="text-xl font-medium text-gray-900 mb-2">Account Created!</h3>
+                             <p className="text-gray-600 mb-6">
+                                 Welcome to FanZ! Your account has been successfully created.
+                             </p>
+                             <button
+                                 onClick={() => router.push('/auth/login')}
+                                 className="inline-block px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                             >
+                                 Proceed to Login
+                             </button>
+                         </div>
+                    ) : (
+                        // Show Signup Form
+                         <>
+                             <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">
+                                 Create Your Account
+                             </h2>
+                             <p className="text-gray-600 mb-6 text-center">
+                                 Join the FanZ community today!
+                             </p>
+
+                             {/* Display Auth Error Message */}
+                             {authError && (
+                                 <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                                     <p>{authError}</p>
+                                 </div>
+                             )}
+
+                             <form onSubmit={handleSubmit} className="space-y-4">
+                                 {/* First Name and Last Name */}
+                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                     <div>
+                                         <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                                             First Name
+                                         </label>
+                                         <input
+                                             type="text"
+                                             id="firstName"
+                                             className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                                             placeholder="Enter first name"
+                                             value={firstName}
+                                             onChange={(e) => setFirstName(e.target.value)}
+                                             required
+                                             autoComplete="given-name"
+                                         />
+                                     </div>
+                                     <div>
+                                         <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                                             Last Name
+                                         </label>
+                                         <input
+                                             type="text"
+                                             id="lastName"
+                                             className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                                             placeholder="Enter last name"
+                                             value={lastName}
+                                             onChange={(e) => setLastName(e.target.value)}
+                                             required
+                                             autoComplete="family-name"
+                                         />
+                                     </div>
+                                 </div>
+
+                                 {/* Email */}
+                                 <div>
+                                     <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                                         Email Address
+                                     </label>
+                                     <input
+                                         type="email"
+                                         id="email"
+                                         className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                                         placeholder="you@example.com"
+                                         value={email}
+                                         onChange={(e) => setEmail(e.target.value)}
+                                         required
+                                         autoComplete="email"
+                                     />
+                                 </div>
+
+                                 {/* Password */}
+                                 <div>
+                                     <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                                         Password
+                                     </label>
+                                     <input
+                                         type="password"
+                                         id="password"
+                                         className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
+                                         placeholder="Create a password (min. 6 characters)"
+                                         value={password}
+                                         onChange={(e) => setPassword(e.target.value)}
+                                         required
+                                         minLength={6}
+                                         autoComplete="new-password"
+                                     />
+                                 </div>
+
+                                 {/* Confirm Password */}
+                                 <div>
+                                     <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                                         Confirm Password
+                                     </label>
+                                     <input
+                                         type="password"
+                                         id="confirmPassword"
+                                         className={`w-full px-4 py-2 rounded-md border ${passwordError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500' } focus:outline-none focus:ring-2 focus:border-transparent transition duration-200`}
+                                         placeholder="Confirm your password"
+                                         value={confirmPassword}
+                                         onChange={(e) => setConfirmPassword(e.target.value)}
+                                         required
+                                         autoComplete="new-password"
+                                     />
+                                     {passwordError && <p className="text-xs mt-1 text-red-600">{passwordError}</p>}
+                                 </div>
+
+                                 {/* Terms Agreement */}
+                                 <div className="flex items-start">
+                                     <input
+                                         id="terms"
+                                         name="terms"
+                                         type="checkbox"
+                                         className="h-4 w-4 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                         required
+                                     />
+                                     <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
+                                         I agree to the <Link href="/terms" className="text-blue-600 hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-blue-600 hover:underline">Privacy Policy</Link>.
+                                     </label>
+                                 </div>
+
+                                 {/* Submit Button */}
+                                 <button
+                                     type="submit"
+                                     className="w-full flex justify-center items-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 disabled:opacity-50"
+                                     disabled={isLoading || !!passwordError}
+                                 >
+                                     {isLoading ? (
+                                         <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                         </svg>
+                                     ) : null}
+                                     {isLoading ? 'Creating Account...' : 'Create Account'}
+                                 </button>
+                             </form>
+
+                            {/* Optional: Social Logins */}
+                             {/* <div className="mt-6">
+                                 <div className="relative">
+                                     <div className="absolute inset-0 flex items-center">
+                                         <div className="w-full border-t border-gray-300" />
+                                     </div>
+                                     <div className="relative flex justify-center text-sm">
+                                         <span className="px-2 bg-white text-gray-500">Or sign up with</span>
+                                     </div>
+                                 </div>
+                                 <div className="mt-6 grid grid-cols-2 gap-3">
+                                     // Add social signup buttons here
+                                 </div>
+                             </div> */}
+
+                             <div className="mt-6 text-center">
+                                 <p className="text-sm text-gray-600">
+                                     Already have an account?{' '}
+                                     <Link href="/auth/login" className="text-blue-600 hover:text-blue-500 font-medium transition-colors">
+                                         Sign in
+                                     </Link>
+                                 </p>
+                             </div>
+                         </>
+                    )}
                 </div>
-            )}
-
-            {/* Success Popup */}
-            {showSuccessPopup && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 transform transition-all scale-100 animate-fadeIn">
-                        <div className="text-center">
-                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4">
-                                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                                </svg>
-                            </div>
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">Successfully Registered!</h3>
-                            <p className="text-sm text-gray-500 mb-6">Your account has been created. Redirecting you to login...</p>
-                            <div className="w-full bg-gray-200 h-1 rounded-full overflow-hidden">
-                                <div className="bg-green-500 h-1 rounded-full animate-progress"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Decorative elements */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-[#1A2A8F]/30 to-[#3BB4E5]/30 rounded-full filter blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-[#3BB4E5]/30 to-[#2A91F5]/30 rounded-full filter blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-
-            <div className="absolute inset-0 bg-gradient-to-br from-[#3BB4E5]/10 via-[#2A91F5]/10 to-[#1A2A8F]/10 backdrop-blur-sm z-0"></div>
-
-            <div className="w-full max-w-6xl z-10 flex flex-col md:flex-row bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden">
-                {/* Left side - Branding */}
-                <div className="w-full md:w-1/2 bg-gradient-to-br from-[#3BB4E5] to-[#1A2A8F] p-8 md:p-12 flex flex-col justify-between text-white relative overflow-hidden">
-                    <div className={`transition-all duration-1000 ${animatedElements ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-                        <div className="flex items-center mb-8">
-                            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-[#3BB4E5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z" />
-                                </svg>
-                            </div>
-                            <h1 className="text-2xl font-bold ml-3">FanZ</h1>
-                        </div>
-
-                        <h2 className="text-3xl md:text-4xl font-bold mb-4">Join our community</h2>
-                        <p className="text-lg text-[#D9F2FF] mb-8">Create your account and start connecting with friends, sharing memories, and building your network.</p>
-                    </div>
-
-                    {/* Animated circles */}
-                    <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-white/10 rounded-full"></div>
-                    <div className="absolute -bottom-16 -right-16 w-40 h-40 bg-white/5 rounded-full"></div>
-
-                    <div className={`transition-all duration-1000 delay-300 ${animatedElements ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-                        <div className="flex items-center gap-4">
-                            <div className="flex -space-x-2">
-                                <div className="w-10 h-10 rounded-full border-2 border-[#1A2A8F] bg-[#3BB4E5]"></div>
-                                <div className="w-10 h-10 rounded-full border-2 border-[#1A2A8F] bg-[#87CEF6]"></div>
-                                <div className="w-10 h-10 rounded-full border-2 border-[#1A2A8F] bg-[#D9F2FF]"></div>
-                            </div>
-                            <p className="text-sm">Join millions of people already connected</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right side - Signup Form */}
-                <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
-                    <div className={`transition-all duration-700 delay-500 ${animatedElements ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-                        <h2 className="text-2xl font-bold text-white-800 mb-2">Create Your Account</h2>
-                        <p className="text-white-600 mb-8">Fill in your details to get started</p>
-
-                        {authError && (
-                            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
-                                <p className="text-red-100 text-sm">{authError}</p>
-                            </div>
-                        )}
-
-                        <form onSubmit={handleSubmit} className="space-y-5">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div>
-                                    <label htmlFor="firstName" className="block text-sm font-medium text-white mb-1">
-                                        First Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="firstName"
-                                        className="w-full px-4 py-3 rounded-lg bg-white/70 text-black backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
-                                        placeholder="Enter your first name"
-                                        value={firstName}
-                                        onChange={(e) => setFirstName(e.target.value)}
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="lastName" className="block text-sm font-medium text-white mb-1">
-                                        Last Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="lastName"
-                                        className="w-full px-4 py-3 rounded-lg bg-white/70 text-black backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
-                                        placeholder="Enter your last name"
-                                        value={lastName}
-                                        onChange={(e) => setLastName(e.target.value)}
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-white mb-1">
-                                    Email Address
-                                </label>
-                                <input
-                                    type="email"
-                                    id="email"
-                                    className="w-full px-4 py-3 rounded-lg bg-white/70 text-black backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
-                                    placeholder="Enter your email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label htmlFor="password" className="block text-sm font-medium text-white mb-1">
-                                    Password
-                                </label>
-                                <input
-                                    type="password"
-                                    id="password"
-                                    className="w-full px-4 py-3 rounded-lg bg-white/70 text-black backdrop-blur-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3BB4E5] focus:border-transparent transition-all duration-200"
-                                    placeholder="Create a password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    minLength={8}
-                                />
-                                <p className="text-xs mt-1 text-white-400">Password must be at least 8 characters</p>
-                            </div>
-
-                            <div>
-                                <label htmlFor="confirmPassword" className="block text-sm font-medium text-white mb-1">
-                                    Confirm Password
-                                </label>
-                                <input
-                                    type="password"
-                                    id="confirmPassword"
-                                    className={`w-full px-4 py-3 rounded-lg bg-white/70 text-black backdrop-blur-sm border ${passwordError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#3BB4E5]'
-                                        } focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200`}
-                                    placeholder="Confirm your password"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    required
-                                />
-                                {passwordError && <p className="text-xs mt-1 text-red-400">{passwordError}</p>}
-                            </div>
-
-                            <div className="flex items-center">
-                                <input
-                                    id="terms"
-                                    name="terms"
-                                    type="checkbox"
-                                    className="h-4 w-4 text-[#3BB4E5] border-gray-300 rounded focus:ring-[#3BB4E5]"
-                                    required
-                                />
-                                <label htmlFor="terms" className="ml-2 block text-sm text-white">
-                                    I agree to the <Link href="/terms" className="text-[#3BB4E5] hover:text-[#1A2A8F]">Terms of Service</Link> and <Link href="/privacy" className="text-[#3BB4E5] hover:text-[#1A2A8F]">Privacy Policy</Link>
-                                </label>
-                            </div>
-
-                            <button
-                                type="submit"
-                                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-white bg-gradient-to-r from-[#3BB4E5] to-[#1A2A8F] hover:from-[#27A0D1] hover:to-[#152375] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3BB4E5] transition-all duration-200"
-                                disabled={isLoading || !!passwordError}
-                            >
-                                {isLoading ? (
-                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                ) : null}
-                                {isLoading ? 'Creating account...' : 'Create account'}
-                            </button>
-                        </form>
-
-                        <div className="mt-6 text-center">
-                            <p className="text-white-600">
-                                Already have an account?{' '}
-                                <Link href="/auth/login" className="text-[#3BB4E5] hover:text-[#1A2A8F] font-medium transition-colors">
-                                    Sign in
-                                </Link>
-                            </p>
-                        </div>
-
-                        <div className="mt-6 flex items-center justify-center">
-                            <div className="h-px bg-gray-300 w-full"></div>
-                            <p className="text-sm text-white-500 px-4 text-center">Or continue with</p>
-                            <div className="h-px bg-gray-300 w-full"></div>
-                        </div>
-
-                        <div className="mt-6 grid grid-cols-2 gap-2">
-                            <button
-                                type="button"
-                                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3BB4E5]"
-                            >
-                                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.602-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.087.636-1.337-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.022.8-.223 1.654-.333 2.504-.337.85.004 1.705.114 2.504.336 1.909-1.29 2.747-1.022 2.747-1.022.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.934.359.31.678.92.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.577.688.48C19.138 20.16 22 16.416 22 12c0-5.523-4.477-10-10-10z" />
-                                </svg>
-                            </button>
-                            <button
-                                type="button"
-                                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3BB4E5]"
-                            >
-                                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm-2.917 16.083c-2.258 0-4.083-1.825-4.083-4.083s1.825-4.083 4.083-4.083c1.103 0 2.024.402 2.735 1.067l-1.107 1.068c-.304-.292-.834-.63-1.628-.63-1.394 0-2.531 1.155-2.531 2.579 0 1.424 1.138 2.579 2.531 2.579 1.616 0 2.224-1.162 2.316-1.762h-2.316v-1.4h3.855c.036.204.064.408.064.677.001 2.332-1.563 3.988-3.919 3.988zm9.917-3.5h-1.75v1.75h-1.167v-1.75h-1.75v-1.166h1.75v-1.75h1.167v1.75h1.75v1.166z" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            </main>
+             {/* Optional Footer */}
         </div>
     );
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import Layout from '../app/components/Layout';
+import Layout from '../components/Layout';
 import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
