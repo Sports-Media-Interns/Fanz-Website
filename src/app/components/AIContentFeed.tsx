@@ -1,0 +1,1 @@
+// Mock content for AIContentFeed.tsx
